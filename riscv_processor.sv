@@ -44,14 +44,13 @@ module riscv_processor(instruction0, instruction1);
 	end
 	
 	// Check for end of instruction
+	/*
 	always begin
-		/*
-		if (end_of_instructions) begin
-			$stop("End of Simulation");
+		if (end_of_instructions == 1'b1) begin
+			$display("End of Simulation");
 		end
-		*/
 	end
-	
+	*/
 	
 	// IF STAGE
 	instruction_reader #(PC_SIZE, INSTR_SIZE, MAX_IMEM_ROWS) IF0 (.pc_i(pc), .instr_o(instruction0), .done_o(if0_done));
