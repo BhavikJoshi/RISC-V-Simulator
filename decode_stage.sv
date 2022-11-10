@@ -1,4 +1,6 @@
-module decode_stage #(parameter INSTR_SIZE = 32, IMM_SIZE = 32, NUM_A_REGS = 32, ALU_OP_SIZE = 4, ALU_ADD = 4'b0010, ALU_SUB = 4'b0110, ALU_AND = 4'b0000, ALU_XOR = 4'b1000, ALU_SRA = 4'b1001)
+module decode_stage #(parameter INSTR_SIZE = 32, IMM_SIZE = 32, NUM_A_REGS = 32, ALU_OP_SIZE = 4, ALU_ADD = 4'b0010, ALU_SUB = 4'b0110, ALU_AND = 4'b0000,
+							ALU_XOR = 4'b1000, ALU_SRA = 4'b1001, CONTR_SIG_SIZE = 5, CONTR_VALID_INDEX = 0, CONTR_REGWRITE_INDEX = 1, CONTR_ALUSRC_INDEX = 2,
+							CONTR_MEMRE_INDEX = 3, CONTR_MEMWR_INDEX = 4)
 	(
 		input [INSTR_SIZE-1:0] instr_i,
 		output reg [$clog2(NUM_A_REGS)-1:0] rd_o,
@@ -6,7 +8,7 @@ module decode_stage #(parameter INSTR_SIZE = 32, IMM_SIZE = 32, NUM_A_REGS = 32,
 		output reg [$clog2(NUM_A_REGS)-1:0] rs2_o, 
 		output reg [IMM_SIZE-1:0] imm_o,
 		output reg [ALU_OP_SIZE-1:0] alu_op_o,
-		output control_o
+		output reg [CONTR_SIG_SIZE-1:0] control_o
 	);
 	
 	// Instruction type opcodes
@@ -22,8 +24,6 @@ module decode_stage #(parameter INSTR_SIZE = 32, IMM_SIZE = 32, NUM_A_REGS = 32,
 	localparam RS2_MSB = 24;
 	localparam FUNCT3_MSB = 14;
 	localparam FUNCT7_MSB = 31;
-	
-	assign control_o = 1'b1;
 	
 	// Rd
 	always @ (*) begin
@@ -80,6 +80,11 @@ module decode_stage #(parameter INSTR_SIZE = 32, IMM_SIZE = 32, NUM_A_REGS = 32,
 	always @ (*) begin
 		case(instr_i[OPCODE_MSB:OPCODE_MSB - OPCODE_SIZE + 1])
 			R_TYPE: begin
+				control_o[CONTR_VALID_INDEX] = 1'b1;
+				control_o[CONTR_REGWRITE_INDEX] = 1'b1;
+				control_o[CONTR_ALUSRC_INDEX] = 1'b0;
+				control_o[CONTR_MEMRE_INDEX] = 1'b0;
+				control_o[CONTR_MEMWR_INDEX] = 1'b0;
 				// ADD
 				if (instr_i[FUNCT3_MSB: FUNCT3_MSB - 3 + 1] == 3'b000 && instr_i[FUNCT7_MSB:FUNCT7_MSB - 7 + 1] == 7'b0000000) begin
 					alu_op_o = ALU_ADD;
@@ -99,9 +104,15 @@ module decode_stage #(parameter INSTR_SIZE = 32, IMM_SIZE = 32, NUM_A_REGS = 32,
 				// DEFAULT TO ADD NO-OP
 				else begin
 					alu_op_o = ALU_ADD;
+					control_o[CONTR_VALID_INDEX] = 1'b0;
 				end
 			end
 			I_TYPE: begin
+				control_o[CONTR_VALID_INDEX] = 1'b1;
+				control_o[CONTR_REGWRITE_INDEX] = 1'b1;
+				control_o[CONTR_ALUSRC_INDEX] = 1'b1;
+				control_o[CONTR_MEMRE_INDEX] = 1'b0;
+				control_o[CONTR_MEMWR_INDEX] = 1'b0;
 				// ADDI
 				if (instr_i[FUNCT3_MSB: FUNCT3_MSB - 3 + 1] == 3'b000) begin
 					alu_op_o = ALU_ADD;
@@ -113,30 +124,49 @@ module decode_stage #(parameter INSTR_SIZE = 32, IMM_SIZE = 32, NUM_A_REGS = 32,
 				// DEFAULT TO ADD NO-OP
 				else begin
 					alu_op_o = ALU_ADD;
+					control_o[CONTR_VALID_INDEX] = 1'b0;
 				end
 			end
 			// LW
 			L_TYPE: begin
+				control_o[CONTR_VALID_INDEX] = 1'b1;
+				control_o[CONTR_REGWRITE_INDEX] = 1'b1;
+				control_o[CONTR_ALUSRC_INDEX] = 1'b1;
+				control_o[CONTR_MEMRE_INDEX] = 1'b1;
+				control_o[CONTR_MEMWR_INDEX] = 1'b0;
 				if (instr_i[FUNCT3_MSB: FUNCT3_MSB - 3 + 1] == 3'b010) begin
 					alu_op_o = ALU_ADD;
 				end
 				// DEFAULT TO ADD NO-OP
 				else begin
 					alu_op_o = ALU_ADD;
+					control_o[CONTR_VALID_INDEX] = 1'b0;
 				end
 			end
 			// SW
 			S_TYPE: begin
+				control_o[CONTR_VALID_INDEX] = 1'b1;
+				control_o[CONTR_REGWRITE_INDEX] = 1'b0;
+				control_o[CONTR_ALUSRC_INDEX] = 1'b1;
+				control_o[CONTR_MEMRE_INDEX] = 1'b0;
+				control_o[CONTR_MEMWR_INDEX] = 1'b1;
 				if (instr_i[FUNCT3_MSB: FUNCT3_MSB - 3 + 1] == 3'b010) begin
 					alu_op_o = ALU_ADD;
 				end
 				// DEFAULT TO ADD NO-OP
 				else begin
 					alu_op_o = ALU_ADD;
+					control_o[CONTR_VALID_INDEX] = 1'b0;
 				end
 			end
+			// Unimplemented instructions
 			default: begin
-				alu_op_o = 0;
+				alu_op_o = ALU_ADD;
+				control_o[CONTR_VALID_INDEX] = 1'b0;
+				control_o[CONTR_REGWRITE_INDEX] = 1'b0;
+				control_o[CONTR_ALUSRC_INDEX] = 1'b0;
+				control_o[CONTR_MEMRE_INDEX] = 1'b0;
+				control_o[CONTR_MEMWR_INDEX] = 1'b0;
 			end
 		endcase
 	end
