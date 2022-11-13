@@ -4,6 +4,7 @@ module riscv_processor(clk);
 	// Instructions
 	localparam PC_SIZE = 32;
 	localparam INSTR_SIZE = 32;
+	localparam WORD_SIZE= 32
 	localparam MAX_IMEM_ROWS = 4096;
 	
 	// Registers
@@ -17,7 +18,6 @@ module riscv_processor(clk);
 	localparam CONTR_ALUSRC_INDEX = 2;
 	localparam CONTR_MEMRE_INDEX = 3;
 	localparam CONTR_MEMWR_INDEX = 4;
-	localparam IMM_SIZE = 32;
 	localparam ALU_OP_SIZE = 4;
 	localparam ALU_ADD = 4'b0010;
 	localparam ALU_SUB = 4'b0110;
@@ -39,12 +39,12 @@ module riscv_processor(clk);
 	
 	// DE
 	wire [$clog2(NUM_A_REGS)-1:0] rd0, rd1, rs10, rs11, rs20, rs21;
-	wire [IMM_SIZE-1:0] imm0, imm1;
+	wire [WORD_SIZE-1:0] imm0, imm1;
 	wire [ALU_OP_SIZE-1:0] alu_op0, alu_op1;
 	wire [CONTR_SIG_SIZE-1:0] contr0, contr1;
 	
 	// DE/R
-	reg [IMM_SIZE-1:0] DE_R_imm0, DE_R_imm1;
+	reg [WORD_SIZE-1:0] DE_R_imm0, DE_R_imm1;
 	reg [ALU_OP_SIZE-1:0] DE_R_alu_op0, DE_R_alu_op1;
 	reg [CONTR_SIG_SIZE-1:0] DE_R_contr0, DE_R_contr1;
 	
@@ -94,10 +94,10 @@ module riscv_processor(clk);
 	end
 	
 	// DE STAGE
-	decode_stage #(INSTR_SIZE, IMM_SIZE, NUM_A_REGS, ALU_OP_SIZE, ALU_ADD, ALU_SUB, ALU_AND, ALU_XOR, ALU_SRA, CONTR_SIG_SIZE, CONTR_VALID_INDEX, CONTR_REGWRITE_INDEX, CONTR_ALUSRC_INDEX,
+	decode_stage #(INSTR_SIZE, WORD_SIZE, NUM_A_REGS, ALU_OP_SIZE, ALU_ADD, ALU_SUB, ALU_AND, ALU_XOR, ALU_SRA, CONTR_SIG_SIZE, CONTR_VALID_INDEX, CONTR_REGWRITE_INDEX, CONTR_ALUSRC_INDEX,
 						CONTR_MEMRE_INDEX, CONTR_MEMWR_INDEX)
 						DE0 (.instr_i(IF_DE_instruction0), .rd_o(rd0), .rs1_o(rs10), .rs2_o(rs20), .imm_o(imm0), .alu_op_o(alu_op0), .control_o(contr0));
-	decode_stage #(INSTR_SIZE, IMM_SIZE, NUM_A_REGS, ALU_OP_SIZE, ALU_ADD, ALU_SUB, ALU_AND, ALU_XOR, ALU_SRA, CONTR_SIG_SIZE, CONTR_VALID_INDEX, CONTR_REGWRITE_INDEX, CONTR_ALUSRC_INDEX,
+	decode_stage #(INSTR_SIZE, WORD_SIZE, NUM_A_REGS, ALU_OP_SIZE, ALU_ADD, ALU_SUB, ALU_AND, ALU_XOR, ALU_SRA, CONTR_SIG_SIZE, CONTR_VALID_INDEX, CONTR_REGWRITE_INDEX, CONTR_ALUSRC_INDEX,
 						CONTR_MEMRE_INDEX, CONTR_MEMWR_INDEX)
 						DE1 (.instr_i(IF_DE_instruction1), .rd_o(rd1), .rs1_o(rs11), .rs2_o(rs21), .imm_o(imm1), .alu_op_o(alu_op1), .control_o(contr1));
 

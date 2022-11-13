@@ -1,4 +1,4 @@
-module decode_stage #(parameter INSTR_SIZE = 32, IMM_SIZE = 32, NUM_A_REGS = 32, ALU_OP_SIZE = 4, ALU_ADD = 4'b0010, ALU_SUB = 4'b0110, ALU_AND = 4'b0000,
+module decode_stage #(parameter INSTR_SIZE = 32, WORD_SIZE = 32, NUM_A_REGS = 32, ALU_OP_SIZE = 4, ALU_ADD = 4'b0010, ALU_SUB = 4'b0110, ALU_AND = 4'b0000,
 							ALU_XOR = 4'b1000, ALU_SRA = 4'b1001, CONTR_SIG_SIZE = 5, CONTR_VALID_INDEX = 0, CONTR_REGWRITE_INDEX = 1, CONTR_ALUSRC_INDEX = 2,
 							CONTR_MEMRE_INDEX = 3, CONTR_MEMWR_INDEX = 4)
 	(
@@ -6,7 +6,7 @@ module decode_stage #(parameter INSTR_SIZE = 32, IMM_SIZE = 32, NUM_A_REGS = 32,
 		output reg [$clog2(NUM_A_REGS)-1:0] rd_o,
 		output reg [$clog2(NUM_A_REGS)-1:0] rs1_o,
 		output reg [$clog2(NUM_A_REGS)-1:0] rs2_o, 
-		output reg [IMM_SIZE-1:0] imm_o,
+		output reg [WORD_SIZE-1:0] imm_o,
 		output reg [ALU_OP_SIZE-1:0] alu_op_o,
 		output reg [CONTR_SIG_SIZE-1:0] control_o
 	);
