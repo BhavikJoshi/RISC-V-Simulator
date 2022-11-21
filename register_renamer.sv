@@ -107,11 +107,10 @@ module register_renamer #(parameter NUM_A_REGS = 32, NUM_P_REGS = 64)
 		end
 		
 		// Update RAT
-		// Get source register translations
+		
+		// Get source register translations for instruction0
 		p_src10_o = rat[get_src10_i];
 		p_src11_o = rat[get_src11_i];
-		p_src20_o = rat[get_src20_i];
-		p_src21_o = rat[get_src21_i];
 		
 		// If dest0 was re-translated
 		if (en_new_dest0_i == 1'b1) begin
@@ -122,6 +121,11 @@ module register_renamer #(parameter NUM_A_REGS = 32, NUM_P_REGS = 64)
 				rat[assign_dest0_i] = p_dest0_o;
 			end
 		end
+		
+		// Get source register translations for instruction1
+		p_src20_o = rat[get_src20_i];
+		p_src21_o = rat[get_src21_i];
+		
 		// If dest1 was retranslated
 		if (en_new_dest1_i == 1'b1) begin
 			// Get old dest reg

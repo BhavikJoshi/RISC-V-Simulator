@@ -2,7 +2,7 @@ module alu #(parameter WORD_SIZE = 32, NUM_P_REGS = 64, ALU_OP_SIZE = 4, ALU_ADD
 				 ALU_XOR = 4'b1000, ALU_SRA = 4'b1001)
 	(
 		input [ALU_OP_SIZE-1:0] alu_op_i,
-		input [WORD_SIZE-1:0] alU_data0_i,
+		input [WORD_SIZE-1:0] alu_data0_i,
 		input [WORD_SIZE-1:0] alu_data1_i,
 		output reg [WORD_SIZE-1:0] result_o,
 		output zero_o

@@ -4,7 +4,7 @@ module riscv_processor(clk);
 	// Instructions
 	localparam PC_SIZE = 32;
 	localparam INSTR_SIZE = 32;
-	localparam WORD_SIZE= 32
+	localparam WORD_SIZE = 32;
 	localparam MAX_IMEM_ROWS = 4096;
 	
 	// Registers
@@ -52,6 +52,11 @@ module riscv_processor(clk);
 	wire [$clog2(NUM_P_REGS)-1:0] old_dest0, old_dest1, new_dest0, new_dest1, p_rs10, p_rs11, p_rs20, p_rs21;
 	wire rename_stage_pregs_full;
 	
+	wire [WORD_SIZE-1:0] read_reg0_val;
+	wire [WORD_SIZE-1:0] read_reg1_val;
+	wire [WORD_SIZE-1:0] read_reg2_val;
+	wire [WORD_SIZE-1:0] read_reg3_val;
+	
 	// Intialize registers
 	initial begin
 		clk = 0;
@@ -59,7 +64,6 @@ module riscv_processor(clk);
 		IF_DE_instruction0 = 0; IF_DE_instruction1 = 0;
 		DE_R_imm0 = 0; DE_R_imm1 = 0;
 		DE_R_alu_op0 = 0; DE_R_alu_op1 = 0;
-		#500 $stop();
 	end
 	
 	// Simulate clock cycle
@@ -69,13 +73,13 @@ module riscv_processor(clk);
 	
 	
 	// Check for end of instruction
-	/*
 	always begin
+		#20
 		if (end_of_instructions == 1'b1) begin
-			$display("End of Simulation");
+			#50
+			$stop("End of Simulation");
 		end
 	end
-	*/
 	
 	// Update PC
 	always @ (posedge clk) begin
@@ -115,9 +119,11 @@ module riscv_processor(clk);
 	// RAT is sequential, so takes DEST and SRC registers directly from DE and renames on the next tick
 	register_renamer #(NUM_A_REGS, NUM_P_REGS) R0 (.clk_i(clk), .en_free_reg0_i(1'b0), .en_free_reg1_i(1'b0), .free_reg0_i(6'b0), .free_reg1_i(6'b0), .en_new_dest0_i(contr0[CONTR_VALID_INDEX]),
 							.en_new_dest1_i(contr1[CONTR_VALID_INDEX]), .assign_dest0_i(rd0), .assign_dest1_i(rd1), .get_src10_i(rs10), .get_src11_i(rs11), .get_src20_i(rs20),
-							.get_src21_i(rs21), .old_dest0_o(old_dest0), .old_dest1_o(old_dest1), .p_dest0_o(new_dest0), .p_dest1_o(new_dest1), .p_src10_o(p_rs10), .p_src11_o(p_rs11), .p_src20_o(p_rs20), .p_src21_o(p_rs21), .no_pregs_left_o(rename_stage_pregs_full));
+							.get_src21_i(rs21), .old_dest0_o(old_dest0), .old_dest1_o(old_dest1), .p_dest0_o(new_dest0), .p_dest1_o(new_dest1), .p_src10_o(p_rs10), .p_src11_o(p_rs11),
+							.p_src20_o(p_rs20), .p_src21_o(p_rs21), .no_pregs_left_o(rename_stage_pregs_full));
 							
-	//
+	register_file #(NUM_P_REGS, WORD_SIZE) RF (.clk_i(clk), .reg_write0_i(1'b0), .reg_write1_i(1'b0), .dest0_i(6'b0), .dest1_i(6'b0), .word0(32'b0), .word1(32'b0), .read_reg0_i(p_rs10), .read_reg1_i(p_rs11),
+						.read_reg2_i(p_rs20), .read_reg3_i(p_rs21), .val_reg0_o(read_reg0_val), .val_reg1_o(read_reg1_val), .val_reg2_o(read_reg2_val), .val_reg3_o(read_reg3_val));
 	
 	
 endmodule
