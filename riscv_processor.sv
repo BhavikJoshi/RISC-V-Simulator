@@ -57,6 +57,12 @@ module riscv_processor(clk);
 	wire [WORD_SIZE-1:0] read_reg2_val;
 	wire [WORD_SIZE-1:0] read_reg3_val;
 	
+	// Global Structure Declarations
+	typedef struct packed {
+		reg to_fwd;
+		reg [WORD_SIZE-1:0] val;
+	} rob_fwd_table_entry;
+	
 	// Intialize registers
 	initial begin
 		clk = 0;
