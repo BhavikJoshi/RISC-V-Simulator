@@ -1,4 +1,4 @@
-module reorder_buffer #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64, CONTR_SIG_SIZE = 5, ROB_SIZE = 64)
+module reorder_buffer #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64, CONTR_SIG_SIZE = 5, ROB_SIZE = 16)
 	(
 		input clk_i,
 		input en_reserve_instr0_i,
@@ -25,19 +25,19 @@ module reorder_buffer #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 		input [WORD_SIZE-1:0] complete_val0_i,
 		input [WORD_SIZE-1:0] complete_val1_i,
 		input [WORD_SIZE-1:0] complete_val2_i,
-		output en_retire_dest0_o,
-		output en_retire_dest1_o,
-		output [$clog2(NUM_P_REGS)-1:0] retire_dest0_o,
-		output [$clog2(NUM_P_REGS)-1:0] retire_dest1_o,
-		output [WORD_SIZE-1:0] retire_val0_o, 
-		output [WORD_SIZE-1:0] retire_val1_o,
+		output reg rob_fwd_table_entry_s rob_fwd_table_o [0:NUM_P_REGS-1];
+		output reg en_retire_dest0_o,
+		output reg en_retire_dest1_o,
+		output reg [$clog2(NUM_P_REGS)-1:0] retire_dest0_o,
+		output reg [$clog2(NUM_P_REGS)-1:0] retire_dest1_o,
+		output reg [WORD_SIZE-1:0] retire_val0_o, 
+		output reg [WORD_SIZE-1:0] retire_val1_o,
 		output tail_indx_0,
 		output tail_indx_1, 
 		output rob_full_o,
 	);
 	
 	typedef rob_entry rob [0:ROB_SIZE-1]:
-	typedef rob_fwd_table_entry rob_fwd_table [0:NUM_P_REGS-1];
 	
 	wire empty = (counter == 0);
 	wire full = (counter == ROB_SIZE);
@@ -72,14 +72,12 @@ module reorder_buffer #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 			rob[i].valid = 1'b0;
 		end
 		for (i = 0; i < NUM_P_REGS; i++) begin
-			rob_fwd_table[i].to_fwd = 1'b0;
+			rob_fwd_table_o[i].to_fwd = 1'b0;
 		end
 	end
 	
 	always @ (posedge clk_i) begin
 		integer i;
-		// Retire entries from ROB
-		if (!empty) begin
 		// Add entries to ROB
 		if (en_reserve_instr0_i) begin
 			if (!full) begin
@@ -109,6 +107,33 @@ module reorder_buffer #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 				counter = counter + 1;
 			end
 		end
+		
+		// Retire entries from ROB
+		en_retire_dest0_o = 1'b0;
+		en_retire_dest1_o = 1'b0;
+		if (!empty) begin
+			if (rob[head].valid == 1'b1 && rob[head].complete == 1'b1) begin
+				en_retire_dest0_o = rob[head].contr[CONTR_REGWRITE_INDEX];
+				retire_dest0_o = rob[head].dest;
+				retire_val0_o = rob[head].val;
+				rob_fwd_table_o[rob[head].dest].to_fwd = 1'b0;
+				rob[head].valid = 1'b0;
+				head = (head + 1) % ROB_SIZE;
+				counter = counter - 1;
+			end
+		end
+		if (!empty) begin
+			if (rob[head].valid == 1'b1 && rob[head].complete == 1'b1) begin
+				en_retire_dest1_o = rob[head].contr[CONTR_REGWRITE_INDEX];
+				retire_dest1_o = rob[head].dest;
+				retire_val1_o = rob[head].val;
+				rob_fwd_table_o[rob[head].dest].to_fwd = 1'b0;
+				rob[head].valid = 1'b0;
+				head = (head + 1) % ROB_SIZE;
+				counter = counter - 1;
+			end
+		end
+		
 		// Complete Entries in ROB
 		if (en_complete_instr0_i) begin
 			if (rob[complete_indx0_i].valid == 1'b0) begin
@@ -121,8 +146,8 @@ module reorder_buffer #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 			else begin
 				rob[complete_indx0_i].val = complete_val0_i;
 				rob[complete_indx0_i].complete = 1'b1;
-				rob_fwd_table[rob[complete_indx0_i].dest].to_fwd = 1'b1;
-				rob_fwd_table[rob[complete_indx0_i].dest].val = complete_val0_i;
+				rob_fwd_table_o[rob[complete_indx0_i].dest].to_fwd = rob[complete_indx0_i].contr[CONTR_REGWRITE_INDEX];
+				rob_fwd_table_o[rob[complete_indx0_i].dest].val = complete_val0_i;
 			end
 		end
 		if (en_complete_instr1_i) begin
@@ -136,8 +161,8 @@ module reorder_buffer #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 			else begin
 				rob[complete_indx1_i].val = complete_val1_i;
 				rob[complete_indx1_i].complete = 1'b1;
-				rob_fwd_table[rob[complete_indx1_i].dest].to_fwd = 1'b1;
-				rob_fwd_table[rob[complete_indx1_i].dest].val = complete_val1_i;
+				rob_fwd_table_o[rob[complete_indx1_i].dest].to_fwd = rob[complete_indx1_i].contr[CONTR_REGWRITE_INDEX];
+				rob_fwd_table_o[rob[complete_indx1_i].dest].val = complete_val1_i;
 			end
 		end
 		if (en_complete_instr2_i) begin
@@ -151,8 +176,8 @@ module reorder_buffer #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 			else begin
 				rob[complete_indx2_i].val = complete_val2_i;
 				rob[complete_indx2_i].complete = 1'b1;
-				rob_fwd_table[rob[complete_indx2_i].dest].to_fwd = 1'b1;
-				rob_fwd_table[rob[complete_indx2_i].dest].val = complete_val2_i;
+				rob_fwd_table_o[rob[complete_indx2_i].dest].to_fwd = rob[complete_indx2_i].contr[CONTR_REGWRITE_INDEX];
+				rob_fwd_table_o[rob[complete_indx2_i].dest].val = complete_val2_i;
 			end
 		end
 	end

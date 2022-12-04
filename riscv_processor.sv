@@ -25,6 +25,11 @@ module riscv_processor(clk);
 	localparam ALU_XOR = 4'b1000;
 	localparam ALU_SRA = 4'b1001;
 	
+	// OoO Parameters
+	localparam ROB_SIZE = 16;
+	localparam NUM_RS_ROWS = 16;
+	localparam MEM_SIZE = 1024;
+	
 	// ***** Var Declarations *****
 	output reg clk;
 	// IF
@@ -57,11 +62,11 @@ module riscv_processor(clk);
 	wire [WORD_SIZE-1:0] read_reg2_val;
 	wire [WORD_SIZE-1:0] read_reg3_val;
 	
-	// Global Structure Declarations
+	// Global Structure declarations
 	typedef struct packed {
 		reg to_fwd;
 		reg [WORD_SIZE-1:0] val;
-	} rob_fwd_table_entry;
+	} rob_fwd_table_entry_s;
 	
 	// Intialize registers
 	initial begin
@@ -130,6 +135,14 @@ module riscv_processor(clk);
 							
 	register_file #(NUM_P_REGS, WORD_SIZE) RF (.clk_i(clk), .reg_write0_i(1'b0), .reg_write1_i(1'b0), .dest0_i(6'b0), .dest1_i(6'b0), .word0(32'b0), .word1(32'b0), .read_reg0_i(p_rs10), .read_reg1_i(p_rs11),
 						.read_reg2_i(p_rs20), .read_reg3_i(p_rs21), .val_reg0_o(read_reg0_val), .val_reg1_o(read_reg1_val), .val_reg2_o(read_reg2_val), .val_reg3_o(read_reg3_val));
+			
+	// R/Di STAGE
+			
+	dispatch_issue #(PC_SIZE, WORD_SIZE, NUM_P_REGS, ALU_OP_SIZE, ALU_ADD, ALU_SUB, ALU_AND, ALU_XOR , ALU_SRA, CONTR_SIG_SIZE, CONTR_VALID_INDEX, CONTR_REGWRITE_INDEX, CONTR_ALUSRC_INDEX,
+						  CONTR_MEMRE_INDEX, CONTR_MEMWR_INDEX, ROB_SIZE, NUM_RS_ROWS, MEM_SIZE)
+						  DI0 (.clk_i(), .new_row0_i(), .new_row1_i(), .dest0_i(), .dest1_i(), . rs10_i(), .rs11_i, .rs10_val_i, .rs11_val_i,.rs20_i,.rs21_i,.rs20_val_i,. rs21_val_i,.imm0_i,. imm1_i,.contr0_i, .contr1_i,. alu_op0_i,
+							.alu_op1_i,.rob_index0_i,.rob_index1_i,.rob_fwd_table_i,.en_complete_instr0_o,.en_complete_instr1_o, . en_complete_instr2_o,.index_complete_instr0_o,.index_complete_instr1_o,.index_complete_instr2_o,
+							.pc_complete_instr0_o,.pc_complete_instr1_o, .pc_complete_instr2_o, .val_complete_instr0_o,.val_complete_instr1_o,.val_complete_instr2_o,.rs_full_o());
 	
 	
 endmodule
