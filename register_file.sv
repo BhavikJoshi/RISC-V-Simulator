@@ -23,7 +23,7 @@ module register_file #(parameter NUM_P_REGS = 64, WORD_SIZE = 32)
 	initial begin
 		integer i;
 		for (i = 0; i < NUM_P_REGS; i++) begin
-			rf[i] = i*i;
+			rf[i] = 0;
 		end
 	end
 	
@@ -39,7 +39,7 @@ module register_file #(parameter NUM_P_REGS = 64, WORD_SIZE = 32)
 		if (reg_write0_i && dest0_i != 0) begin
 			rf[dest0_i] = word0;
 		end
-		if (reg_write1_i && dest0_i != 0 begin
+		if (reg_write1_i && dest0_i != 0) begin
 			rf[dest1_i] = word1;
 		end
 	end

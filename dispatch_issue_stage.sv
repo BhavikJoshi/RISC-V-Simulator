@@ -5,14 +5,14 @@ module dispatch_issue #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 		input clk_i,
 		input new_row0_i,
 		input new_row1_i,
-		input [$clog2(NUMP_P_REGS)-1:0] dest0_i, 
-		input [$clog2(NUMP_P_REGS)-1:0] dest1_i,
-		input [$clog2(NUMP_P_REGS)-1:0] rs10_i,
-		input [$clog2(NUMP_P_REGS)-1:0] rs11_i,
+		input [$clog2(NUM_P_REGS)-1:0] dest0_i, 
+		input [$clog2(NUM_P_REGS)-1:0] dest1_i,
+		input [$clog2(NUM_P_REGS)-1:0] rs10_i,
+		input [$clog2(NUM_P_REGS)-1:0] rs11_i,
 		input [WORD_SIZE-1:0] rs10_val_i,
 		input [WORD_SIZE-1:0] rs11_val_i,
-		input [$clog2(NUMP_P_REGS)-1:0] rs20_i,
-		input [$clog2(NUMP_P_REGS)-1:0] rs21_i,
+		input [$clog2(NUM_P_REGS)-1:0] rs20_i,
+		input [$clog2(NUM_P_REGS)-1:0] rs21_i,
 		input [WORD_SIZE-1:0] rs20_val_i,
 		input [WORD_SIZE-1:0] rs21_val_i,
 		input [WORD_SIZE-1:0] imm0_i,
@@ -23,7 +23,10 @@ module dispatch_issue #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 		input [ALU_OP_SIZE-1:0] alu_op1_i,
 		input [$clog2(ROB_SIZE)-1:0] rob_index0_i,
 		input [$clog2(ROB_SIZE)-1:0] rob_index1_i,
-		input rob_fwd_table_entry_s rob_fwd_table_i [0:NUM_P_REGS-1];
+		input [PC_SIZE-1:0] pc0_i,
+		input [PC_SIZE-1:0] pc1_i,
+		input rob_fwd_table_ready_i [0:NUM_P_REGS-1],
+		input [WORD_SIZE-1:0] rob_fwd_table_val_i [0:NUM_P_REGS-1],
 		output reg en_complete_instr0_o,
 		output reg en_complete_instr1_o, 
 		output reg en_complete_instr2_o,
@@ -55,8 +58,9 @@ module dispatch_issue #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 		reg [CONTR_SIG_SIZE-1:0] contr;
 		reg [ALU_OP_SIZE-1:0] alu_op;
 		reg [$clog2(ROB_SIZE)-1:0] rob_index;
+		reg [PC_SIZE-1:0] pc;
 		reg fu_type;
-	} rs_entry;
+	} rs_entry_s;
 	
 	typedef struct packed {
 		reg used;
@@ -68,16 +72,18 @@ module dispatch_issue #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 		reg [CONTR_SIG_SIZE-1:0] contr;
 		reg [ALU_OP_SIZE-1:0] alu_op;
 		reg [$clog2(ROB_SIZE)-1:0] rob_index;
-		wire [WORD_SIZE-1:0] result;
-	} fu_issue;
+		reg [PC_SIZE-1:0] pc;
+	} fu_issue_s;
 	
-	typedef rs_entry rs [0:NUM_RS_ROWS-1];
+	rs_entry_s rs [0:NUM_RS_ROWS-1];
 	
-	typedef fu_issue alu_issue[0:NUM_ALU_FUS-1];
-	typedef fu_issue mem_issue;
+	fu_issue_s alu_issue[0:NUM_ALU_FUS-1];
+	fu_issue_s mem_issue;
 	
-	reg src_ready [0:NUM_P_REGS];
-	reg fu_ready [0:NUM_ALU_FS + NUM_MEM_FUS-1];
+	reg [WORD_SIZE-1:0] fu_result [0:NUM_ALU_FUS + NUM_MEM_FUS-1];
+	
+	reg src_ready [0:NUM_P_REGS-1];
+	reg fu_ready [0:NUM_ALU_FUS + NUM_MEM_FUS-1];
 	integer num_free_rows;
 	
 	reg [$clog2(NUM_P_REGS)-1:0] complete_dest0;
@@ -107,12 +113,12 @@ module dispatch_issue #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 	end
 	
 	alu #(WORD_SIZE, NUM_P_REGS, ALU_OP_SIZE, ALU_ADD, ALU_SUB, ALU_AND,
-				 ALU_XOR, ALU_SRA) ALU0 (.alu_op_i(alu_issue[0].alu_op), alU_data0_i(alu_issue[0].data0), alu_data1_i(alu_issue[0].data1), result_o(alu_issue[0].result), zero_o());
+				 ALU_XOR, ALU_SRA) ALU0 (.alu_op_i(alu_issue[0].alu_op), .alu_data0_i(alu_issue[0].data0), .alu_data1_i(alu_issue[0].data1), .result_o(fu_result[0]), .zero_o());
 				 
 	alu #(WORD_SIZE, NUM_P_REGS, ALU_OP_SIZE, ALU_ADD, ALU_SUB, ALU_AND,
-				 ALU_XOR, ALU_SRA) ALU1 (.alu_op_i(alu_issue[1].alu_op), alU_data0_i(alu_issue[1].data0), alu_data1_i(alu_issue[1].data1), result_o(alu_issue[1].result), zero_o());
+				 ALU_XOR, ALU_SRA) ALU1 (.alu_op_i(alu_issue[1].alu_op), .alu_data0_i(alu_issue[1].data0), .alu_data1_i(alu_issue[1].data1),. result_o(fu_result[1]), .zero_o());
 				 
-	memory #(WORD_SIZE, MEM_SIZE) MEM0 (.en_mem_i(mem_issue.used), .mem_read_i(mem_issue.contr[CONTR_MEMRE_INDEX]), .mem_write_i(mem_issue.contr[CONTR_MEMWR_INDEX]), .addr_base_i(mem_issue.data0), .addr_offset_i(mem_issue.data1), .val_i(mem_issue.data2), val_o(mem_issue.result));
+	memory #(WORD_SIZE, MEM_SIZE) MEM0 (.en_mem_i(mem_issue.used), .mem_read_i(mem_issue.contr[CONTR_MEMRE_INDEX]), .mem_write_i(mem_issue.contr[CONTR_MEMWR_INDEX]), .addr_base_i(mem_issue.data0), .addr_offset_i(mem_issue.data1), .val_i(mem_issue.data2), .val_o(fu_result[2]));
 	
 	// Output RS full if less than two free rows
 	assign rs_full_o = num_free_rows < 2;
@@ -126,7 +132,7 @@ module dispatch_issue #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 		end
 	end
 	
-	always @ (posedge clk) begin
+	always @ (posedge clk_i) begin
 		integer i;
 		integer a;
 		
@@ -140,11 +146,11 @@ module dispatch_issue #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 					if (rs[i].used == 1'b1) begin
 						// Forward RS1
 						if (rs[i].rs1 == alu_issue[a].dest && alu_issue[a].dest != 0) begin
-							rs[i].rs1_val = alu_issue[a].result;
+							rs[i].rs1_val = fu_result[a];
 						end
 						// Forward RS2
 						if (rs[i].rs2 == alu_issue[a].dest && alu_issue[a].dest != 0) begin
-							rs[i].rs2_val = alu_issue[a].result;
+							rs[i].rs2_val = fu_result[a];
 						end
 					end
 				end
@@ -162,11 +168,11 @@ module dispatch_issue #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 					if (rs[i].used == 1'b1) begin
 						// Forward RS1
 						if (rs[i].rs1 == mem_issue.dest && mem_issue.dest != 0) begin
-							rs[i].rs1_val = alu_issue[a].result;
+							rs[i].rs1_val = fu_result[2];
 						end
 						// Forward RS2
 						if (rs[i].rs2 == mem_issue.dest && mem_issue.dest != 0) begin
-							rs[i].rs2_val = alu_issue[a].result;
+							rs[i].rs2_val = fu_result[2];
 						end
 					end
 				end
@@ -176,7 +182,6 @@ module dispatch_issue #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 				src_ready[mem_issue.dest] = 1'b1;
 				fu_ready[2] = 1'b1;
 			end
-		// TODO: forward from MEM FUs and mark then as unready
 		
 		// Schedule ready instructions from RS to FUs, Mark FUs as not ready, remove lines from RS
 		for (i = 0; i < NUM_RS_ROWS; i++) begin
@@ -200,6 +205,7 @@ module dispatch_issue #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 								alu_issue[a].contr = rs[i].contr;
 								alu_issue[a].alu_op = rs[i].alu_op;
 								alu_issue[a].rob_index = rs[i].rob_index;
+								alu_issue[a].pc = rs[i].pc;
 								// Remove instruction from RS
 								rs[i].used = 1'b0;
 								break; // Only schedule in one FU
@@ -219,6 +225,7 @@ module dispatch_issue #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 							mem_issue.contr = rs[i].contr;
 							mem_issue.alu_op = rs[i].alu_op;
 							mem_issue.rob_index = rs[i].rob_index;
+							mem_issue.pc = rs[i].pc;
 							mem_issue.used = 1'b1;
 							// Remove instruction from RS
 							rs[i].used = 1'b0;
@@ -238,8 +245,8 @@ module dispatch_issue #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 					rs[i].rs1 = rs10_i;
 					rs[i].rs2 = rs20_i;
 					// Forward sources from ROB if they are currently in complete
-					rs[i].rs1_val = rob_fwd_table_i[rs10_i].to_fwd == 1'b1 ? rob_fwd_table_i[rs10_i].val : rs10_val_i;
-					rs[i].rs2_val = rob_fwd_table_i[rs20_i].to_fwd == 1'b1 ? rob_fwd_table_i[rs20_i].val : rs20_val_i;
+					rs[i].rs1_val = rs10_i != 0 && rob_fwd_table_ready_i[rs10_i] == 1'b1 ? rob_fwd_table_val_i[rs10_i] : rs10_val_i;
+					rs[i].rs2_val = rs20_i != 0 && rob_fwd_table_ready_i[rs20_i] == 1'b1 ? rob_fwd_table_val_i[rs20_i] : rs20_val_i;
 					// Forward sources from previous cycle issue complete since ROB fwd table is currently updating with new value
 					if (en_complete_instr0_o == 1'b1 && complete_contr0[CONTR_REGWRITE_INDEX]) begin
 						if (rs[i].rs1 == complete_dest0) begin
@@ -269,8 +276,10 @@ module dispatch_issue #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 					rs[i].contr = contr0_i;
 					rs[i].alu_op = alu_op0_i;
 					rs[i].rob_index = rob_index0_i;
+					rs[i].pc = pc0_i;
+					rs[i].fu_type = contr0_i[CONTR_MEMRE_INDEX] | contr0_i[CONTR_MEMWR_INDEX];
 					// Mark destination as not ready
-					if (src_ready[rs[i].dest] == 1'b1) begin
+					if (src_ready[rs[i].dest] == 1'b1 && rs[i].dest != 0) begin
 						src_ready[rs[i].dest] = 1'b0;
 					end
 					else begin
@@ -289,8 +298,8 @@ module dispatch_issue #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 					rs[i].rs1 = rs11_i;
 					rs[i].rs2 = rs21_i;
 					// Forward sources from ROB if they are currently in complete
-					rs[i].rs1_val = rob_fwd_table_i[rs11_i].to_fwd == 1'b1 ? rob_fwd_table_i[rs11_i].val : rs11_val_i;
-					rs[i].rs2_val = rob_fwd_table_i[rs21_i].to_fwd == 1'b1 ? rob_fwd_table_i[rs21_i].val : rs21_val_i;
+					rs[i].rs1_val = rs11_i != 0 && rob_fwd_table_ready_i[rs11_i] == 1'b1 ? rob_fwd_table_val_i[rs11_i] : rs11_val_i;
+					rs[i].rs2_val = rs21_i != 0 && rob_fwd_table_ready_i[rs21_i] == 1'b1 ? rob_fwd_table_val_i[rs21_i] : rs21_val_i;
 					// Forward sources from previous cycle issue complete since ROB fwd table is currently updating with new value
 					if (en_complete_instr0_o == 1'b1 && complete_contr0[CONTR_REGWRITE_INDEX]) begin
 						if (rs[i].rs1 == complete_dest0) begin
@@ -320,8 +329,10 @@ module dispatch_issue #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 					rs[i].contr = contr1_i;
 					rs[i].alu_op = alu_op1_i;
 					rs[i].rob_index = rob_index1_i;
+					rs[i].pc = pc1_i;
+					rs[i].fu_type = contr1_i[CONTR_MEMRE_INDEX] | contr1_i[CONTR_MEMWR_INDEX];
 					// Mark destination as not ready
-					if (src_ready[rs[i].dest] == 1'b1) begin
+					if (src_ready[rs[i].dest] == 1'b1 && rs[i].dest != 0) begin
 						src_ready[rs[i].dest] = 1'b0;
 					end
 					else begin
@@ -337,7 +348,7 @@ module dispatch_issue #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 			alu_issue[0].done = 1'b1;
 			en_complete_instr0_o = 1'b1;
 			index_complete_instr0_o = alu_issue[0].rob_index;
-			val_complete_instr0_o = alu_issue[0].result;
+			val_complete_instr0_o = fu_result[0];
 			pc_complete_instr0_o = alu_issue[0].pc;
 			complete_dest0 = alu_issue[0].dest;
 			complete_contr0 = alu_issue[0].contr;
@@ -350,7 +361,7 @@ module dispatch_issue #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 			alu_issue[1].done = 1'b1;
 			en_complete_instr1_o = 1'b1;
 			index_complete_instr1_o = alu_issue[1].rob_index;
-			val_complete_instr1_o = alu_issue[1].result;
+			val_complete_instr1_o = fu_result[1];
 			pc_complete_instr1_o = alu_issue[1].pc;
 			complete_dest1 = alu_issue[1].dest;
 			complete_contr1 = alu_issue[1].contr;
@@ -363,7 +374,7 @@ module dispatch_issue #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 			mem_issue.done = 1'b1;
 			en_complete_instr2_o = 1'b1;
 			index_complete_instr2_o = mem_issue.rob_index;
-			val_complete_instr2_o = mem_issue.result;
+			val_complete_instr2_o = fu_result[2];
 			pc_complete_instr2_o = mem_issue.pc;
 			complete_dest2 = mem_issue.dest;
 			complete_contr2 = mem_issue.contr;
@@ -372,7 +383,6 @@ module dispatch_issue #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 		else begin
 			en_complete_instr2_o = 1'b0;
 		end
-
-	
+	end
 
 endmodule
