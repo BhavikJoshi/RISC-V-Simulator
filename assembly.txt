@@ -1,0 +1,9 @@
+addi x5, x0, 9
+addi x6, x0, 2
+sub x4, x5, x6
+sw x6, x4, 6
+xor x4,  x2, x1
+sra x5, x2, x1
+add x6, x4, x3
+andi x7, x4, 3
+lw x10 8(x0)

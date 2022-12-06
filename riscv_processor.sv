@@ -163,23 +163,18 @@ module riscv_processor(clk);
 	register_file #(NUM_P_REGS, WORD_SIZE) RF (.clk_i(clk), .reg_write0_i(retire_instr0), .reg_write1_i(retire_instr1), .dest0_i(retire_dest0), .dest1_i(retire_dest1), .word0(retire_val0), .word1(retire_val1), .read_reg0_i(p_rs10), .read_reg1_i(p_rs11),
 						.read_reg2_i(p_rs20), .read_reg3_i(p_rs21), .val_reg0_o(read_reg0_val), .val_reg1_o(read_reg1_val), .val_reg2_o(read_reg2_val), .val_reg3_o(read_reg3_val));
 			
-	// R/Di STAGE
-	always @ (posedge clk) begin
-	
-	end
-			
 	dispatch_issue #(PC_SIZE, WORD_SIZE, NUM_P_REGS, ALU_OP_SIZE, ALU_ADD, ALU_SUB, ALU_AND, ALU_XOR , ALU_SRA, CONTR_SIG_SIZE, CONTR_VALID_INDEX, CONTR_REGWRITE_INDEX, CONTR_ALUSRC_INDEX,
 						  CONTR_MEMRE_INDEX, CONTR_MEMWR_INDEX, ROB_SIZE, NUM_RS_ROWS, MEM_SIZE)
 						  DI0 (.clk_i(clk), .new_row0_i(DE_R_contr0[CONTR_VALID_INDEX]), .new_row1_i(DE_R_contr1[CONTR_VALID_INDEX]), .dest0_i(new_dest0), .dest1_i(new_dest1), . rs10_i(p_rs10),
-						  .rs11_i(p_rs11), .rs10_val_i(read_reg0_val), .rs11_val_i(read_reg1_val), .rs20_i(p_rs10), .rs21_i(p_rs21), .rs20_val_i(read_reg2_val), .rs21_val_i(read_reg3_val),
-						  .imm0_i(DE_R_imm0), .imm1_i(DE_R_imm1), .contr0_i(DE_R_contr0), .contr1_i(DE_R_contr1),. alu_op0_i(DE_R_alu_op0), .alu_op1_i(DE_R_alu_op1), .rob_index0_i(rob_next_index0),
+						  .rs11_i(p_rs11), .rs10_val_i(read_reg0_val), .rs11_val_i(read_reg1_val), .rs20_i(p_rs20), .rs21_i(p_rs21), .rs20_val_i(read_reg2_val), .rs21_val_i(read_reg3_val),
+						  .imm0_i(DE_R_imm0), .imm1_i(DE_R_imm1), .contr0_i(DE_R_contr0), .contr1_i(DE_R_contr1),.alu_op0_i(DE_R_alu_op0), .alu_op1_i(DE_R_alu_op1), .rob_index0_i(rob_next_index0),
 						  .rob_index1_i(rob_next_index1), .pc0_i(DE_R_pc0), .pc1_i(DE_R_pc1), .rob_fwd_table_ready_i(rob_fwd_table_ready), .rob_fwd_table_val_i(rob_fwd_table_val), .en_complete_instr0_o(instr0_completed),
 						  .en_complete_instr1_o(instr1_completed), .en_complete_instr2_o(instr2_completed), .index_complete_instr0_o(completed_index_instr0), .index_complete_instr1_o(completed_index_instr1),
 						  .index_complete_instr2_o(completed_index_instr2), .pc_complete_instr0_o(completed_pc_instr0),.pc_complete_instr1_o(completed_pc_instr1), .pc_complete_instr2_o(completed_pc_instr2),
 						  .val_complete_instr0_o(completed_val_instr0), .val_complete_instr1_o(completed_val_instr1), .val_complete_instr2_o(completed_val_instr2), .rs_full_o());
 	
 	 reorder_buffer #(PC_SIZE, WORD_SIZE, NUM_P_REGS, CONTR_SIG_SIZE, CONTR_VALID_INDEX, CONTR_REGWRITE_INDEX, CONTR_ALUSRC_INDEX, CONTR_MEMRE_INDEX, CONTR_MEMWR_INDEX, ROB_SIZE)
-						 ROB0 (.clk_i(clk), .en_reserve_instr0_i(DE_R_contr0[CONTR_VALID_INDEX]), . en_reserve_instr1_i(DE_R_contr1[CONTR_VALID_INDEX]), .instr0_dest_i(new_dest0),
+						 ROB0 (.clk_i(clk), .en_reserve_instr0_i(DE_R_contr0[CONTR_VALID_INDEX]), .en_reserve_instr1_i(DE_R_contr1[CONTR_VALID_INDEX]), .instr0_dest_i(new_dest0),
 						 .instr1_dest_i(new_dest1), .instr0_old_dest_i(old_dest0), .instr1_old_dest_i(old_dest1), .instr0_contr_i(DE_R_contr0), .instr1_contr_i(DE_R_contr1),
 						 .instr0_pc_i(DE_R_pc0), .instr1_pc_i(DE_R_pc1), .en_complete_instr0_i(instr0_completed), .en_complete_instr1_i(instr1_completed), .en_complete_instr2_i(instr2_completed),
 						 .complete_indx0_i(completed_index_instr0), .complete_indx1_i(completed_index_instr1), .complete_indx2_i(completed_index_instr2), .complete_pc0_i(completed_pc_instr0),

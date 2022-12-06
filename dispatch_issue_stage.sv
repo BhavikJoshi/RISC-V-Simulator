@@ -343,9 +343,22 @@ module dispatch_issue #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 			end
 		end
 		
-		// Mark scheduled FUs as ready, send complete to ROB
+		// Mark scheduled FUs as done
 		if (alu_issue[0].used == 1'b1 && alu_issue[0].done == 1'b0) begin
 			alu_issue[0].done = 1'b1;
+		end
+		if (alu_issue[1].used == 1'b1 && alu_issue[1].done == 1'b0) begin
+			alu_issue[1].done = 1'b1;
+		end
+		if (mem_issue.used == 1'b1 && mem_issue.done == 1'b0) begin
+			mem_issue.done = 1'b1;
+		end
+		
+	end
+	
+	// Sending complete signal after ALU values are ready
+	always @ (negedge clk_i) begin
+		if (alu_issue[0].used == 1'b1 && alu_issue[0].done == 1'b1) begin
 			en_complete_instr0_o = 1'b1;
 			index_complete_instr0_o = alu_issue[0].rob_index;
 			val_complete_instr0_o = fu_result[0];
@@ -357,8 +370,7 @@ module dispatch_issue #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 		else begin
 			en_complete_instr0_o = 1'b0;
 		end
-		if (alu_issue[1].used == 1'b1 && alu_issue[1].done == 1'b0) begin
-			alu_issue[1].done = 1'b1;
+		if (alu_issue[1].used == 1'b1 && alu_issue[1].done == 1'b1) begin
 			en_complete_instr1_o = 1'b1;
 			index_complete_instr1_o = alu_issue[1].rob_index;
 			val_complete_instr1_o = fu_result[1];
@@ -370,8 +382,7 @@ module dispatch_issue #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 		else begin
 			en_complete_instr1_o = 1'b0;
 		end
-		if (mem_issue.used == 1'b1 && mem_issue.done == 1'b0) begin
-			mem_issue.done = 1'b1;
+		if (mem_issue.used == 1'b1 && mem_issue.done == 1'b1) begin
 			en_complete_instr2_o = 1'b1;
 			index_complete_instr2_o = mem_issue.rob_index;
 			val_complete_instr2_o = fu_result[2];
