@@ -14,11 +14,11 @@ module instruction_reader #(parameter PC_SIZE = 32, INSTR_SIZE = 32, MAX_LINES =
 
 	// Load file binary into register
 	initial begin
-		$readmemh("D:/Users/Bhavik/OneDrive/Desktop/Quartus/bin.txt", instr_mem);
+		$readmemh("C:/Users/piefo/OneDrive/Desktop/189/bin.txt", instr_mem);
 	end
 	
 	// Fetch instruction from i-memory
-	assign instr_o = instr_mem[pc_i+3] !== 8'bxxxxxxxx ? {instr_mem[pc_i+3], instr_mem[pc_i+2], instr_mem[pc_i+1], instr_mem[pc_i]} : NOP;
+	assign instr_o = instr_mem[pc_i+3] !== 8'bxxxxxxxx ? {instr_mem[pc_i+3], instr_mem[pc_i+2], instr_mem[pc_i+1], instr_mem[pc_i+0]} : NOP;
 	
 	// If no more instructions
 	assign done_o = (instr_mem[pc_i+3] === 8'bxxxxxxxx);

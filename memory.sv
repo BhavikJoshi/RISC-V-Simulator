@@ -9,11 +9,12 @@ module memory #(parameter WORD_SIZE = 32, MEM_SIZE = 1024)
 		output reg [WORD_SIZE-1:0] val_o
 	);
 	
-	reg [WORD_SIZE-1:0] memory [0:MEM_SIZE-1];
+	localparam BYTE_SIZE = 8;
+	reg [BYTE_SIZE-1:0] memory [0:MEM_SIZE-1];
 	
 	initial begin
 		integer i;
-		for (i = 0; i < MEM_SIZE-1; i++) begin
+		for (i = 0; i < MEM_SIZE; i++) begin
 			memory[i] = 0;
 		end
 		val_o = 0;
@@ -22,10 +23,12 @@ module memory #(parameter WORD_SIZE = 32, MEM_SIZE = 1024)
 	
 	always @ (posedge en_mem_i) begin
 		if (mem_write_i == 1'b1) begin
-			memory[addr_base_i + addr_offset_i] = val_i;
+			{memory[addr_base_i + addr_offset_i+3], memory[addr_base_i + addr_offset_i+2],
+			 memory[addr_base_i + addr_offset_i+1], memory[addr_base_i + addr_offset_i+0]} = val_i;
 		end
 		else if (mem_read_i == 1'b1) begin
-			val_o = memory[addr_base_i + addr_offset_i];
+			val_o = {memory[addr_base_i + addr_offset_i+3], memory[addr_base_i + addr_offset_i+2],
+						memory[addr_base_i + addr_offset_i+1], memory[addr_base_i + addr_offset_i+0]};
 		end
 	end 
 

@@ -109,34 +109,6 @@ module reorder_buffer #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 			end
 		end
 		
-		// Retire entries from ROB
-		en_retire_dest0_o = 1'b0;
-		en_retire_dest1_o = 1'b0;
-		if (!empty) begin
-			if (rob[head].valid == 1'b1 && rob[head].complete == 1'b1) begin
-				en_retire_dest0_o = rob[head].contr[CONTR_REGWRITE_INDEX];
-				retire_dest0_o = rob[head].dest;
-				retire_old_dest0_o = rob[head].old_dest;
-				retire_val0_o = rob[head].val;
-				rob_fwd_table_ready_o[rob[head].dest] = 1'b0;
-				rob[head].valid = 1'b0;
-				head = (head + 1) % ROB_SIZE;
-				counter = counter - 1;
-			end
-		end
-		if (!empty) begin
-			if (rob[head].valid == 1'b1 && rob[head].complete == 1'b1) begin
-				en_retire_dest1_o = rob[head].contr[CONTR_REGWRITE_INDEX];
-				retire_dest1_o = rob[head].dest;
-				retire_old_dest1_o = rob[head].old_dest;
-				retire_val1_o = rob[head].val;
-				rob_fwd_table_ready_o[rob[head].dest] = 1'b0;
-				rob[head].valid = 1'b0;
-				head = (head + 1) % ROB_SIZE;
-				counter = counter - 1;
-			end
-		end
-		
 		// Complete Entries in ROB
 		if (en_complete_instr0_i) begin
 			if (rob[complete_indx0_i].valid == 1'b0) begin
@@ -181,6 +153,34 @@ module reorder_buffer #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 				rob[complete_indx2_i].complete = 1'b1;
 				rob_fwd_table_ready_o[rob[complete_indx2_i].dest] = rob[complete_indx2_i].contr[CONTR_REGWRITE_INDEX];
 				rob_fwd_table_val_o[rob[complete_indx2_i].dest] = complete_val2_i;
+			end
+		end
+		
+		// Mark entries to retire next cycle
+		en_retire_dest0_o = 1'b0;
+		en_retire_dest1_o = 1'b0;
+		if (!empty) begin
+			if (rob[head].valid == 1'b1 && rob[head].complete == 1'b1) begin
+				en_retire_dest0_o = rob[head].contr[CONTR_REGWRITE_INDEX];
+				retire_dest0_o = rob[head].dest;
+				retire_old_dest0_o = rob[head].old_dest;
+				retire_val0_o = rob[head].val;
+				rob_fwd_table_ready_o[rob[head].dest] = 1'b0;
+				rob[head].valid = 1'b0;
+				head = (head + 1) % ROB_SIZE;
+				counter = counter - 1;
+			end
+		end
+		if (!empty) begin
+			if (rob[head].valid == 1'b1 && rob[head].complete == 1'b1) begin
+				en_retire_dest1_o = rob[head].contr[CONTR_REGWRITE_INDEX];
+				retire_dest1_o = rob[head].dest;
+				retire_old_dest1_o = rob[head].old_dest;
+				retire_val1_o = rob[head].val;
+				rob_fwd_table_ready_o[rob[head].dest] = 1'b0;
+				rob[head].valid = 1'b0;
+				head = (head + 1) % ROB_SIZE;
+				counter = counter - 1;
 			end
 		end
 	end

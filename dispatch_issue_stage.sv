@@ -27,6 +27,12 @@ module dispatch_issue #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 		input [PC_SIZE-1:0] pc1_i,
 		input rob_fwd_table_ready_i [0:NUM_P_REGS-1],
 		input [WORD_SIZE-1:0] rob_fwd_table_val_i [0:NUM_P_REGS-1],
+		input en_retire_fwd0_i,
+		input en_retire_fwd1_i,
+		input [$clog2(NUM_P_REGS)-1:0] retire_fwd_dest0_i,
+		input [$clog2(NUM_P_REGS)-1:0] retire_fwd_dest1_i,
+		input [WORD_SIZE-1:0] retire_fwd_val0_i, 
+		input [WORD_SIZE-1:0] retire_fwd_val1_i,
 		output reg en_complete_instr0_o,
 		output reg en_complete_instr1_o, 
 		output reg en_complete_instr2_o,
@@ -187,10 +193,10 @@ module dispatch_issue #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 		for (i = 0; i < NUM_RS_ROWS; i++) begin
 			// If valid entry
 			if (rs[i].used == 1'b1) begin
+				// If is an ALU instructions
+				if (rs[i].fu_type == FU_ALU) begin
 				// If RS1 ready and (SRC is IMM or RS2 is ready)
-				if (src_ready[rs[i].rs1] == 1'b1 && (rs[i].contr[CONTR_ALUSRC_INDEX] == 1'b1 || src_ready[rs[i].rs2] == 1'b1)) begin 
-					// If is an ALU instructions
-					if (rs[i].fu_type == FU_ALU) begin
+					if (src_ready[rs[i].rs1] == 1'b1 && (rs[i].contr[CONTR_ALUSRC_INDEX] == 1'b1 || src_ready[rs[i].rs2] == 1'b1)) begin
 						// If an FU is ready, schedule it
 						for (a = 0; a < NUM_ALU_FUS; a++) begin
 							// FU[a] is ready
@@ -210,10 +216,14 @@ module dispatch_issue #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 								rs[i].used = 1'b0;
 								break; // Only schedule in one FU
 							end
-						end
-					end
-					// If it is a MEM instruction
-					else if (rs[i].fu_type == FU_MEM) begin
+						end // end for
+					end // if SRCs  ready
+				end // if type is ALU
+				
+				// If it is a MEM instruction
+				else if (rs[i].fu_type == FU_MEM) begin
+				// If RS1 ready and (is LW or RS2 is ready)
+					if (src_ready[rs[i].rs1] == 1'b1 && (rs[i].contr[CONTR_MEMRE_INDEX] == 1'b1 || src_ready[rs[i].rs2] == 1'b1)) begin
 						if (fu_ready[2] == 1'b1 && mem_issue.used == 1'b0) begin
 							// Schedule instruction
 							fu_ready[2] = 1'b0;
@@ -230,8 +240,8 @@ module dispatch_issue #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 							// Remove instruction from RS
 							rs[i].used = 1'b0;
 						end
-					end
-				end // SRCs not ready
+					end // if sources not ready
+				end // if type is mem
 			end // RS row not used
 		end
 		
@@ -244,23 +254,46 @@ module dispatch_issue #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 					rs[i].dest = dest0_i;
 					rs[i].rs1 = rs10_i;
 					rs[i].rs2 = rs20_i;
+					rs[i].rs1_val = rs10_val_i;
+					rs[i].rs2_val = rs20_val_i;
+					// Forward sources from retire if register file is currently being written
+					if (en_retire_fwd0_i) begin
+						if (rs[i].rs1 != 0 && rs[i].rs1 == retire_fwd_dest0_i) begin
+							rs[i].rs1_val = retire_fwd_val0_i;
+						end
+						if (rs[i].rs2 != 0 && rs[i].rs2 == retire_fwd_dest0_i) begin
+							rs[i].rs2_val = retire_fwd_val0_i;
+						end
+					end
+					if (en_retire_fwd1_i) begin
+						if (rs[i].rs1 != 0 && rs[i].rs1 == retire_fwd_dest1_i) begin
+							rs[i].rs1_val = retire_fwd_val1_i;
+						end
+						if (rs[i].rs2 != 0 && rs[i].rs2 == retire_fwd_dest1_i) begin
+							rs[i].rs2_val = retire_fwd_val1_i;
+						end
+					end
 					// Forward sources from ROB if they are currently in complete
-					rs[i].rs1_val = rs10_i != 0 && rob_fwd_table_ready_i[rs10_i] == 1'b1 ? rob_fwd_table_val_i[rs10_i] : rs10_val_i;
-					rs[i].rs2_val = rs20_i != 0 && rob_fwd_table_ready_i[rs20_i] == 1'b1 ? rob_fwd_table_val_i[rs20_i] : rs20_val_i;
+					if (rs[i].rs1 != 0 && rob_fwd_table_ready_i[rs[i].rs1] == 1'b1) begin
+						rs[i].rs1_val = rob_fwd_table_val_i[rs[i].rs1];
+					end
+					if (rs[i].rs2 != 0 && rob_fwd_table_ready_i[rs[i].rs2] == 1'b1) begin
+						rs[i].rs2_val = rob_fwd_table_val_i[rs[i].rs2];
+					end
 					// Forward sources from previous cycle issue complete since ROB fwd table is currently updating with new value
 					if (en_complete_instr0_o == 1'b1 && complete_contr0[CONTR_REGWRITE_INDEX]) begin
-						if (rs[i].rs1 == complete_dest0) begin
+						if (rs[i].rs1 != 0 && rs[i].rs1 == complete_dest0) begin
 							rs[i].rs1_val = val_complete_instr0_o;
 						end
-						if (rs[i].rs2 == complete_dest0) begin
+						if (rs[i].rs2 != 0 && rs[i].rs2 == complete_dest0) begin
 							rs[i].rs2_val = val_complete_instr0_o;
 						end
 					end
 					if (en_complete_instr1_o == 1'b1 && complete_contr1[CONTR_REGWRITE_INDEX]) begin
-						if (rs[i].rs1 == complete_dest1) begin
+						if (rs[i].rs1 != 0 && rs[i].rs1 == complete_dest1) begin
 							rs[i].rs1_val = val_complete_instr1_o;
 						end
-						if (rs[i].rs2 == complete_dest1) begin
+						if (rs[i].rs2 != 0 && rs[i].rs2 == complete_dest1) begin
 							rs[i].rs2_val = val_complete_instr1_o;
 						end
 					end
@@ -297,9 +330,32 @@ module dispatch_issue #(parameter PC_SIZE = 32, WORD_SIZE = 32, NUM_P_REGS = 64,
 					rs[i].dest = dest1_i;
 					rs[i].rs1 = rs11_i;
 					rs[i].rs2 = rs21_i;
+					rs[i].rs1_val = rs11_val_i;
+					rs[i].rs2_val = rs21_val_i;
+					// Forward sources from retire if register file is currently being written
+					if (en_retire_fwd0_i) begin
+						if (rs[i].rs1 != 0 && rs[i].rs1 == retire_fwd_dest0_i) begin
+							rs[i].rs1_val = retire_fwd_val0_i;
+						end
+						if (rs[i].rs2 != 0 && rs[i].rs2 == retire_fwd_dest0_i) begin
+							rs[i].rs2_val = retire_fwd_val0_i;
+						end
+					end
+					if (en_retire_fwd1_i) begin
+						if (rs[i].rs1 != 0 && rs[i].rs1 == retire_fwd_dest1_i) begin
+							rs[i].rs1_val = retire_fwd_val1_i;
+						end
+						if (rs[i].rs2 != 0 && rs[i].rs2 == retire_fwd_dest1_i) begin
+							rs[i].rs2_val = retire_fwd_val1_i;
+						end
+					end
 					// Forward sources from ROB if they are currently in complete
-					rs[i].rs1_val = rs11_i != 0 && rob_fwd_table_ready_i[rs11_i] == 1'b1 ? rob_fwd_table_val_i[rs11_i] : rs11_val_i;
-					rs[i].rs2_val = rs21_i != 0 && rob_fwd_table_ready_i[rs21_i] == 1'b1 ? rob_fwd_table_val_i[rs21_i] : rs21_val_i;
+					if (rs[i].rs1 != 0 && rob_fwd_table_ready_i[rs[i].rs1] == 1'b1) begin
+						rs[i].rs1_val = rob_fwd_table_val_i[rs[i].rs1];
+					end
+					if (rs[i].rs2 != 0 && rob_fwd_table_ready_i[rs[i].rs2] == 1'b1) begin
+						rs[i].rs2_val = rob_fwd_table_val_i[rs[i].rs2];
+					end
 					// Forward sources from previous cycle issue complete since ROB fwd table is currently updating with new value
 					if (en_complete_instr0_o == 1'b1 && complete_contr0[CONTR_REGWRITE_INDEX]) begin
 						if (rs[i].rs1 == complete_dest0) begin
