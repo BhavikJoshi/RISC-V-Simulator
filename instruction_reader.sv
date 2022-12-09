@@ -18,7 +18,7 @@ module instruction_reader #(parameter PC_SIZE = 32, INSTR_SIZE = 32, MAX_LINES =
 	end
 	
 	// Fetch instruction from i-memory
-	assign instr_o = instr_mem[pc_i+3] !== 8'bxxxxxxxx ? {instr_mem[pc_i+3], instr_mem[pc_i+2], instr_mem[pc_i+1], instr_mem[pc_i+0]} : NOP;
+	assign instr_o = instr_mem[pc_i+3] !== 8'bxxxxxxxx ? {instr_mem[pc_i+0], instr_mem[pc_i+1], instr_mem[pc_i+2], instr_mem[pc_i+3]} : NOP;
 	
 	// If no more instructions
 	assign done_o = (instr_mem[pc_i+3] === 8'bxxxxxxxx);
